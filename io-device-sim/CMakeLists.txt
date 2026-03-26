@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-project("spdm-device-emu-main" C)
+project("io-device-sim" C)
 
 #
 # Build Configuration Macro Definition
@@ -799,7 +799,7 @@ set(SRCS
 )
 add_executable(io-device-sim ${SRCS})
 
-target_link_libraries(spdm_nic_device
+target_link_libraries(io-device-sim
     spdm_emu_common            
     spdm_responder_lib
     spdm_transport_pcidoe_lib 
