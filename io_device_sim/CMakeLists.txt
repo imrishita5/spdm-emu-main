@@ -1,5 +1,3 @@
-# spdm_emu/spdm_nic_device/CMakeLists.txt
-
 cmake_minimum_required(VERSION 3.5)
 
 project("io-device-sim" C)

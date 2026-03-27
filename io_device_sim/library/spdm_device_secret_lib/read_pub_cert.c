@@ -22,11 +22,43 @@
 #include "library/memlib.h"
 #include "spdm_device_secret_lib_internal.h"
 
-#if LIBSPDM_ECDSA_SUPPORT
-#include "bin/ecp384_bundle_responder_certchain.c"
-#endif
+#define RESPONDER_CERT_CHAIN_PATH  "./io-device-certs/bundle.certchain.der"
+#define RESPONDER_ROOT_CERT_PATH   "./io-device-certs/ca.cert.der"
 
-#include "bin/ecp384_root_ca.c"
+static bool read_file_to_buffer(
+    const char *file,
+    uint8_t **buffer,
+    size_t *buffer_size
+)
+{
+    FILE *fp;
+    long size;
+
+    fp = fopen(file, "rb");
+    if (fp == NULL) {
+        return false;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+    rewind(fp);
+
+    *buffer = malloc(size);
+    if (*buffer == NULL) {
+        fclose(fp);
+        return false;
+    }
+
+    if (fread(*buffer, 1, size, fp) != (size_t)size) {
+        fclose(fp);
+        free(*buffer);
+        return false;
+    }
+
+    fclose(fp);
+    *buffer_size = (size_t)size;
+    return true;
+}
 
 bool libspdm_read_responder_public_certificate_chain(
     uint32_t base_hash_algo, uint32_t base_asym_algo, void **data,
@@ -60,8 +92,28 @@ bool libspdm_read_responder_public_certificate_chain(
     switch (base_asym_algo) {
 #if LIBSPDM_ECDSA_SUPPORT
     case SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P384:
-        cert_chain = (void *)m_libspdm_ecp384_bundle_responder_certchain;
-        cert_chain_size = sizeof(m_libspdm_ecp384_bundle_responder_certchain);
+        uint8_t *cert_chain_buffer;
+        uint8_t *root_cert_buffer;
+        size_t cert_chain_buffer_size;
+        size_t root_cert_buffer_size;
+
+        if (!read_file_to_buffer(
+                RESPONDER_CERT_CHAIN_PATH,
+                &cert_chain_buffer,
+                &cert_chain_buffer_size)) {
+            return false;
+        }
+
+        if (!read_file_to_buffer(
+                RESPONDER_ROOT_CERT_PATH,
+                &root_cert_buffer,
+                &root_cert_buffer_size)) {
+            free(cert_chain_buffer);
+            return false;
+        }
+
+        cert_chain = (spdm_cert_chain_t *)cert_chain_buffer;
+        cert_chain_size = cert_chain_buffer_size;
         break;
 #endif
     default:
@@ -74,8 +126,8 @@ bool libspdm_read_responder_public_certificate_chain(
 
     /* Get Root Certificate and calculate hash value*/
 
-    root_cert = m_libspdm_ec384_responder_root_ca;
-    root_cert_len = sizeof(m_libspdm_ec384_responder_root_ca);
+    root_cert = root_cert_buffer;
+    root_cert_len = root_cert_buffer_size;
 
     res = libspdm_hash_all(base_hash_algo, root_cert, root_cert_len,
                            (uint8_t *)(cert_chain + 1));
