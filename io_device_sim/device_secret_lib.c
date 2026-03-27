@@ -1,7 +1,6 @@
 // nic_device_secret_lib.c
 
 #include "library/spdm_responder_lib.h"
-#include "nic_measurements.h"
 
 // Called by libspdm when it needs to sign a challenge or measurement
 // with the device's private key.

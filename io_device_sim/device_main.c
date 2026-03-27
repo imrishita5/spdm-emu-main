@@ -5,7 +5,7 @@
 #include <string.h>
 #include "library/spdm_responder_lib.h"
 #include "library/spdm_transport_pcidoe_lib.h"   // or mctp_lib
-#include "spdm_emu_common/spdm_emu.h"             // TCP helpers from spdm-emu
+#include "./spdm_emu/spdm_emu_common/spdm_emu.h"             // TCP helpers from spdm-emu
 
 // ── Transport send/receive wrappers (TCP for now) ──────────────────────────
 // These are the two function pointers libspdm calls to move bytes.
