@@ -11,10 +11,13 @@
 void libspdm_debug_assert(const char *file_name, size_t line_number,
                           const char *description)
 {
-    LIBSPDM_ASSERT(false);
+    (void)file_name;
+    (void)line_number;
+    (void)description;
 }
 
 void libspdm_debug_print(size_t error_level, const char *format, ...)
 {
-    LIBSPDM_ASSERT(false);
+    (void)error_level;
+    (void)format;
 }
