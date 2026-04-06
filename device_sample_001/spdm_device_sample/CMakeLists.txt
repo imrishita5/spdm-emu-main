@@ -25,9 +25,9 @@ if(NOT STACK_USAGE)
     set(STACK_USAGE "OFF")
 endif()
 
-set(LIBSPDM_DIR ${PROJECT_SOURCE_DIR}/../../libspdm)
-set(SPDM_EMU_DIR ${PROJECT_SOURCE_DIR}/../..)
-set(SPDM_DEVICE_DIR ${PROJECT_SOURCE_DIR})
+get_filename_component(LIBSPDM_DIR ${PROJECT_SOURCE_DIR}/../../libspdm ABSOLUTE)
+get_filename_component(SPDM_EMU_DIR ${PROJECT_SOURCE_DIR}/../.. ABSOLUTE)
+get_filename_component(SPDM_DEVICE_DIR ${PROJECT_SOURCE_DIR} ABSOLUTE)
 
 #
 # OpenSSL specific compiled libraries.
