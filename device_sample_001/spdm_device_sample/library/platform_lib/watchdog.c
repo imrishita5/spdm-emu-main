@@ -17,7 +17,10 @@
  **/
 bool libspdm_start_watchdog(uint32_t session_id, uint16_t seconds)
 {
-    LIBSPDM_ASSERT(false);
+    /* Stub: In bare-metal firmware, watchdog would use hardware timer/WDT.
+       For this responder mock, we skip watchdog functionality. */
+    (void)session_id;
+    (void)seconds;
     return true;
 }
 
@@ -29,7 +32,8 @@ bool libspdm_start_watchdog(uint32_t session_id, uint16_t seconds)
  **/
 bool libspdm_stop_watchdog(uint32_t session_id)
 {
-    LIBSPDM_ASSERT(false);
+    /* Stub: Stop the watchdog timer. */
+    (void)session_id;
     return true;
 }
 
@@ -41,6 +45,7 @@ bool libspdm_stop_watchdog(uint32_t session_id)
  **/
 bool libspdm_reset_watchdog(uint32_t session_id)
 {
-    LIBSPDM_ASSERT(false);
+    /* Stub: Reset the watchdog timer. */
+    (void)session_id;
     return true;
 }

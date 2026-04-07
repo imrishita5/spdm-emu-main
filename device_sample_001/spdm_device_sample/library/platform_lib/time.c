@@ -15,5 +15,8 @@
  **/
 void libspdm_sleep(uint64_t milliseconds)
 {
-    LIBSPDM_ASSERT(false);
+    /* Stub: In bare-metal firmware, sleep would typically use a hardware timer.
+       For now, this is a no-op since this is a responder mock. */
+    (void)milliseconds;
+    return;
 }
