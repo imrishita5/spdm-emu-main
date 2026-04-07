@@ -534,6 +534,7 @@ bool libspdm_generate_measurement_summary_hash(
             measurement_hash_algo,
             0xFF, /* Get all measurements*/
             0,
+            NULL,
             0,
             NULL,
             NULL,
