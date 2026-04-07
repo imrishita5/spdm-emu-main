@@ -6,6 +6,8 @@
 
 #include "spdm_responder.h"
 
+extern void spdm_dispatch(void);
+
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>

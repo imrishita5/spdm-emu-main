@@ -6,6 +6,11 @@
 
 #include "spdm_responder.h"
 #include "spdm_device_secret_lib/spdm_device_secret_lib_internal.h"
+#include "library/spdm_transport_tcp_lib.h"
+
+/* TCP transport uses a 4-byte header and no tail (per spdm_transport_tcp_lib.h) */
+#define LIBSPDM_TCP_TRANSPORT_HEADER_SIZE 4
+#define LIBSPDM_TCP_TRANSPORT_TAIL_SIZE   0
 
 #if defined(LIBSPDM_HOST_EMU)
 #if defined(_WIN32)
