@@ -13,6 +13,25 @@ typedef size_t time_t;
 typedef size_t time_t;
 #endif
 
+/* Stub for clock_gettime needed by mbedtls when linking without libc (-nostdlib). */
+#if defined(__GNUC__) && !defined(_WIN32)
+typedef long clockid_t;
+typedef long time_s_t;
+struct timespec_stub {
+    time_s_t tv_sec;
+    long     tv_nsec;
+};
+int clock_gettime(clockid_t clk_id, struct timespec_stub *tp)
+{
+    if (tp != NULL) {
+        tp->tv_sec  = 1704067200; /* fixed timestamp: 2024-01-01 */
+        tp->tv_nsec = 0;
+    }
+    (void)clk_id;
+    return 0;
+}
+#endif
+
 /* Structures Definitions*/
 
 struct tm {
