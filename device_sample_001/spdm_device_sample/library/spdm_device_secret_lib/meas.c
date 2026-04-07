@@ -536,6 +536,7 @@ bool libspdm_generate_measurement_summary_hash(
             0,
             NULL,
             0,
+            0,
             NULL,
             NULL,
             &device_measurement_count, device_measurement,
