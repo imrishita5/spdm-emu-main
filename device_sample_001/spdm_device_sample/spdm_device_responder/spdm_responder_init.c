@@ -13,6 +13,12 @@
 #define LIBSPDM_TCP_TRANSPORT_TAIL_SIZE   0
 
 #if defined(LIBSPDM_HOST_EMU)
+#define SOCKET_TRANSPORT_TYPE_TCP 0x03
+#define SOCKET_SPDM_COMMAND_NORMAL 0x0001
+#define SOCKET_SPDM_COMMAND_TEST   0xDEAD
+
+uint32_t m_command = SOCKET_SPDM_COMMAND_NORMAL;
+
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -68,6 +74,42 @@ bool m_send_receive_buffer_acquired = false;
 uint8_t m_send_receive_buffer[LIBSPDM_MAX_SENDER_RECEIVER_BUFFER_SIZE];
 size_t m_send_receive_buffer_size;
 
+libspdm_return_t spdm_responder_send_platform_message(uint32_t command,
+                                                      size_t message_size,
+                                                      const void *message)
+{
+#if defined(LIBSPDM_HOST_EMU)
+    uint32_t command_be;
+    uint32_t transport_be;
+    uint32_t message_size_be;
+
+    if (m_host_emu_socket < 0 || message_size > 0xFFFFFFFFu) {
+        return LIBSPDM_STATUS_SEND_FAIL;
+    }
+
+    command_be = htonl(command);
+    transport_be = htonl(SOCKET_TRANSPORT_TYPE_TCP);
+    message_size_be = htonl((uint32_t)message_size);
+
+    if (!spdm_host_emu_write_n(&command_be, sizeof(command_be)) ||
+        !spdm_host_emu_write_n(&transport_be, sizeof(transport_be)) ||
+        !spdm_host_emu_write_n(&message_size_be, sizeof(message_size_be))) {
+        return LIBSPDM_STATUS_SEND_FAIL;
+    }
+
+    if (message_size != 0 && !spdm_host_emu_write_n(message, message_size)) {
+        return LIBSPDM_STATUS_SEND_FAIL;
+    }
+
+    return LIBSPDM_STATUS_SUCCESS;
+#else
+    (void)command;
+    (void)message_size;
+    (void)message;
+    return LIBSPDM_STATUS_UNSUPPORTED_CAP;
+#endif
+}
+
 libspdm_return_t spdm_responder_send_message(void *spdm_context,
                                              size_t message_size, const void *message,
                                              uint64_t timeout)
@@ -80,14 +122,9 @@ libspdm_return_t spdm_responder_send_message(void *spdm_context,
         return LIBSPDM_STATUS_SEND_FAIL;
     }
 
-    /* TCP framing is handled by libspdm_transport_tcp_encode_message().
-     * This function just sends the already-encoded message to the socket.
-     */
-    if (!spdm_host_emu_write_n(message, message_size)) {
-        return LIBSPDM_STATUS_SEND_FAIL;
-    }
-
-    return LIBSPDM_STATUS_SUCCESS;
+    return spdm_responder_send_platform_message(SOCKET_SPDM_COMMAND_NORMAL,
+                                                message_size,
+                                                message);
 #else
     size_t index;
     const uint32_t *msg;
@@ -119,8 +156,9 @@ libspdm_return_t spdm_responder_receive_message(void *spdm_context,
                                                 uint64_t timeout)
 {
 #if defined(LIBSPDM_HOST_EMU)
-    uint8_t header[2];
-    uint16_t payload_length;
+    uint32_t command;
+    uint32_t transport;
+    uint32_t payload_size;
 
     (void)spdm_context;
     (void)timeout;
@@ -131,34 +169,34 @@ libspdm_return_t spdm_responder_receive_message(void *spdm_context,
         return LIBSPDM_STATUS_RECEIVE_FAIL;
     }
 
-    /* Read the 2-byte TCP binding header with payload length */
-    if (!spdm_host_emu_read_n(header, sizeof(header))) {
+    if (!spdm_host_emu_read_n(&command, sizeof(command)) ||
+        !spdm_host_emu_read_n(&transport, sizeof(transport)) ||
+        !spdm_host_emu_read_n(&payload_size, sizeof(payload_size))) {
         return LIBSPDM_STATUS_RECEIVE_FAIL;
     }
 
-    /* Extract payload_length in big-endian format */
-    payload_length = ((uint16_t)header[0] << 8) | (uint16_t)header[1];
-    
-    /* payload_length includes version (1 byte) + type (1 byte) + SPDM message
-     * Total bytes in buffer = 2 (header) + payload_length
-     */
-    if (payload_length < 2 || (2 + payload_length) > sizeof(m_send_receive_buffer)) {
+    m_command = ntohl(command);
+    transport = ntohl(transport);
+    payload_size = ntohl(payload_size);
+
+    if ((transport != SOCKET_TRANSPORT_TYPE_TCP) ||
+        (payload_size > sizeof(m_send_receive_buffer))) {
         return LIBSPDM_STATUS_RECEIVE_FAIL;
     }
 
-    /* Copy the 2-byte header into the receive buffer */
-    libspdm_copy_mem(m_send_receive_buffer, sizeof(m_send_receive_buffer),
-                     header, sizeof(header));
-
-    /* Read the remaining payload_length bytes */
-    if (!spdm_host_emu_read_n((uint8_t*)m_send_receive_buffer + sizeof(header), 
-                              payload_length)) {
+    if (payload_size != 0 && !spdm_host_emu_read_n(*message, payload_size)) {
         return LIBSPDM_STATUS_RECEIVE_FAIL;
     }
 
+    m_send_receive_buffer_size = payload_size;
     *message = m_send_receive_buffer;
-    *message_size = sizeof(header) + payload_length;
-    return LIBSPDM_STATUS_SUCCESS;
+    *message_size = payload_size;
+
+    if (m_command == SOCKET_SPDM_COMMAND_NORMAL) {
+        return LIBSPDM_STATUS_SUCCESS;
+    }
+
+    return LIBSPDM_STATUS_UNSUPPORTED_CAP;
 #else
     size_t index;
     uint32_t *msg;

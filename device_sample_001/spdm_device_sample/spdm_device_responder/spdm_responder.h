@@ -144,6 +144,12 @@ typedef struct {
 
 void *spdm_server_init(void);
 
+extern uint32_t m_command;
+
+libspdm_return_t spdm_responder_send_platform_message(uint32_t command,
+                                                      size_t message_size,
+                                                      const void *message);
+
 libspdm_return_t pci_doe_init_responder();
 
 libspdm_return_t spdm_get_response_vendor_defined_request(
