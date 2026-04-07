@@ -270,6 +270,8 @@ libspdm_return_t libspdm_measurement_collection(
     uint32_t measurement_hash_algo,
     uint8_t measurements_index,
     uint8_t request_attribute,
+    const uint8_t *requester_nonce,
+    uint8_t slot_id_param,
     size_t request_context_size,
     const void *request_context,
     uint8_t *content_changed,
@@ -283,6 +285,14 @@ libspdm_return_t libspdm_measurement_collection(
     size_t total_size_needed;
     bool use_bit_stream;
     size_t measurement_block_size;
+
+    (void)spdm_context;
+    (void)session_id;
+    (void)spdm_version;
+    (void)requester_nonce;
+    (void)slot_id_param;
+    (void)request_context_size;
+    (void)request_context;
 
     if ((measurement_specification !=
          SPDM_MEASUREMENT_SPECIFICATION_DMTF) ||
