@@ -1,19 +1,21 @@
 cmake_minimum_required(VERSION 3.5)
 
+set(SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS "")
+
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     if(ARCH STREQUAL "x64")
-        set(CMAKE_EXE_LINKER_FLAGS "-nostdlib -flto -Wl,--entry,ModuleEntryPoint")
+        set(SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS "-nostdlib -flto -Wl,--entry,ModuleEntryPoint")
     elseif(ARCH STREQUAL "aarch64")
         if(TOOLCHAIN STREQUAL "ARM_DS2022")
-            set(CMAKE_EXE_LINKER_FLAGS "--target=aarch64-arm-none-eabi -nostdlib -flto -Wl,--entry,ModuleEntryPoint,--undefined=__udivti3")
+            set(SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS "--target=aarch64-arm-none-eabi -nostdlib -flto -Wl,--entry,ModuleEntryPoint,--undefined=__udivti3")
         elseif(TOOLCHAIN STREQUAL "ARM_GNU")
-            set(CMAKE_EXE_LINKER_FLAGS "-nostdlib -flto -Wl,--entry,ModuleEntryPoint,--undefined=__udivti3")
+            set(SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS "-nostdlib -flto -Wl,--entry,ModuleEntryPoint,--undefined=__udivti3")
         elseif(TOOLCHAIN STREQUAL "AARCH64_GCC")
-            set(CMAKE_EXE_LINKER_FLAGS "-nostdlib -flto -Wl,--entry,ModuleEntryPoint")
+            set(SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS "-nostdlib -flto -Wl,--entry,ModuleEntryPoint")
         endif()
     endif()
 elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    set(CMAKE_EXE_LINKER_FLAGS "/DLL /ENTRY:ModuleEntryPoint /NOLOGO /SUBSYSTEM:EFI_BOOT_SERVICE_DRIVER /NODEFAULTLIB /IGNORE:4086 /MAP /OPT:REF")
+    set(SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS "/DLL /ENTRY:ModuleEntryPoint /NOLOGO /SUBSYSTEM:EFI_BOOT_SERVICE_DRIVER /NODEFAULTLIB /IGNORE:4086 /MAP /OPT:REF")
 endif()
 
 # Propagate parent CMake variables to this subdirectory
@@ -37,6 +39,16 @@ include_directories(${SPDM_DEVICE_DIR}/include
 )
 
 set(src_spdm_device_responder
+    spdm_responder_init.c
+    spdm_responder_main.c
+    compiler_stub.c
+    support.c
+    spdm_responder_pci_doe.c
+    pci.c
+)
+
+set(src_spdm_device_responder_host_emu
+    spdm_responder_host_main.c
     spdm_responder_init.c
     spdm_responder_main.c
     compiler_stub.c
@@ -73,11 +85,26 @@ if(TOOLCHAIN STREQUAL "ARM_DS2022" OR TOOLCHAIN STREQUAL "ARM_GNU")
     set(spdm_device_responder_LIBRARY ${spdm_device_responder_LIBRARY} armbuild_lib)
 endif()
 
-    add_executable(spdm_device_responder ${src_spdm_device_responder})
-    if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-        target_link_libraries(spdm_device_responder ${spdm_device_responder_LIBRARY} -lgcc)
-    else()
-        target_link_libraries(spdm_device_responder ${spdm_device_responder_LIBRARY})
-    endif()
+add_executable(spdm_device_responder ${src_spdm_device_responder})
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    target_link_libraries(spdm_device_responder ${spdm_device_responder_LIBRARY} -lgcc)
+else()
+    target_link_libraries(spdm_device_responder ${spdm_device_responder_LIBRARY})
+endif()
+set_target_properties(spdm_device_responder PROPERTIES
+    LINK_FLAGS "${SPDM_DEVICE_RESPONDER_FIRMWARE_LINK_FLAGS}")
+
+add_executable(spdm_device_responder_host_emu ${src_spdm_device_responder_host_emu})
+target_compile_definitions(spdm_device_responder_host_emu PRIVATE LIBSPDM_HOST_EMU=1)
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    target_link_libraries(spdm_device_responder_host_emu
+        ${spdm_device_responder_LIBRARY}
+        spdm_transport_tcp_lib)
+else()
+    target_link_libraries(spdm_device_responder_host_emu
+        ${spdm_device_responder_LIBRARY}
+        spdm_transport_tcp_lib
+        ws2_32)
+endif()
 
 

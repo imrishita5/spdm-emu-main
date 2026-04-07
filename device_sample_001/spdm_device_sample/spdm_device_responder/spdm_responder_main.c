@@ -25,10 +25,12 @@ void spdm_dispatch(void)
         return;
     }
 
+#if !defined(LIBSPDM_HOST_EMU)
     status = pci_doe_init_responder ();
     if (status != LIBSPDM_STATUS_SUCCESS) {
         return;
     }
+#endif
 
     while (true) {
         status = libspdm_responder_dispatch_message(spdm_context);

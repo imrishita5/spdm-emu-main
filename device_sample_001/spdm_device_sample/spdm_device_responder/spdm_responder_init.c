@@ -7,6 +7,59 @@
 #include "spdm_responder.h"
 #include "spdm_device_secret_lib/spdm_device_secret_lib_internal.h"
 
+#if defined(LIBSPDM_HOST_EMU)
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#endif
+
+#define SOCKET_TRANSPORT_TYPE_TCP 0x03
+#define SOCKET_SPDM_COMMAND_NORMAL 0x0001
+
+int m_host_emu_socket = -1;
+
+static bool spdm_host_emu_read_n(void *buffer, size_t size)
+{
+    size_t done;
+    ssize_t ret;
+    uint8_t *ptr;
+
+    done = 0;
+    ptr = (uint8_t *)buffer;
+    while (done < size) {
+        ret = recv(m_host_emu_socket, (char *)ptr + done, size - done, 0);
+        if (ret <= 0) {
+            return false;
+        }
+        done += (size_t)ret;
+    }
+    return true;
+}
+
+static bool spdm_host_emu_write_n(const void *buffer, size_t size)
+{
+    size_t done;
+    ssize_t ret;
+    const uint8_t *ptr;
+
+    done = 0;
+    ptr = (const uint8_t *)buffer;
+    while (done < size) {
+        ret = send(m_host_emu_socket, (const char *)ptr + done, size - done, 0);
+        if (ret <= 0) {
+            return false;
+        }
+        done += (size_t)ret;
+    }
+    return true;
+}
+#endif
+
 uint8_t m_scratch_buffer[LIBSPDM_SCRATCH_BUFFER_SIZE];
 
 bool m_send_receive_buffer_acquired = false;
@@ -17,6 +70,31 @@ libspdm_return_t spdm_responder_send_message(void *spdm_context,
                                              size_t message_size, const void *message,
                                              uint64_t timeout)
 {
+#if defined(LIBSPDM_HOST_EMU)
+    uint32_t command;
+    uint32_t transport;
+    uint32_t payload_size;
+
+    (void)spdm_context;
+    (void)timeout;
+
+    if (m_host_emu_socket < 0) {
+        return LIBSPDM_STATUS_SEND_FAIL;
+    }
+
+    command = htonl(SOCKET_SPDM_COMMAND_NORMAL);
+    transport = htonl(SOCKET_TRANSPORT_TYPE_TCP);
+    payload_size = htonl((uint32_t)message_size);
+
+    if (!spdm_host_emu_write_n(&command, sizeof(command)) ||
+        !spdm_host_emu_write_n(&transport, sizeof(transport)) ||
+        !spdm_host_emu_write_n(&payload_size, sizeof(payload_size)) ||
+        !spdm_host_emu_write_n(message, message_size)) {
+        return LIBSPDM_STATUS_SEND_FAIL;
+    }
+
+    return LIBSPDM_STATUS_SUCCESS;
+#else
     size_t index;
     const uint32_t *msg;
     uint32_t data32;
@@ -38,6 +116,7 @@ libspdm_return_t spdm_responder_send_message(void *spdm_context,
     spdm_dev_pci_cfg_doe_write_32 (PCI_EXPRESS_REG_DOE_STATUS_OFFSET,
                                    PCI_EXPRESS_REG_DOE_STATUS_BIT_DATA_READY);
     return LIBSPDM_STATUS_SUCCESS;
+#endif
 }
 
 libspdm_return_t spdm_responder_receive_message(void *spdm_context,
@@ -45,6 +124,43 @@ libspdm_return_t spdm_responder_receive_message(void *spdm_context,
                                                 void **message,
                                                 uint64_t timeout)
 {
+#if defined(LIBSPDM_HOST_EMU)
+    uint32_t command;
+    uint32_t transport;
+    uint32_t payload_size;
+
+    (void)spdm_context;
+    (void)timeout;
+
+    LIBSPDM_ASSERT (*message == m_send_receive_buffer);
+
+    if (m_host_emu_socket < 0) {
+        return LIBSPDM_STATUS_RECEIVE_FAIL;
+    }
+
+    if (!spdm_host_emu_read_n(&command, sizeof(command)) ||
+        !spdm_host_emu_read_n(&transport, sizeof(transport)) ||
+        !spdm_host_emu_read_n(&payload_size, sizeof(payload_size))) {
+        return LIBSPDM_STATUS_RECEIVE_FAIL;
+    }
+
+    command = ntohl(command);
+    transport = ntohl(transport);
+    payload_size = ntohl(payload_size);
+
+    if ((transport != SOCKET_TRANSPORT_TYPE_TCP) ||
+        (command != SOCKET_SPDM_COMMAND_NORMAL) ||
+        (payload_size > sizeof(m_send_receive_buffer))) {
+        return LIBSPDM_STATUS_RECEIVE_FAIL;
+    }
+
+    if (!spdm_host_emu_read_n(*message, payload_size)) {
+        return LIBSPDM_STATUS_RECEIVE_FAIL;
+    }
+
+    *message_size = payload_size;
+    return LIBSPDM_STATUS_SUCCESS;
+#else
     size_t index;
     uint32_t *msg;
     uint32_t data32;
@@ -78,6 +194,7 @@ libspdm_return_t spdm_responder_receive_message(void *spdm_context,
 
     spdm_dev_pci_cfg_doe_write_32 (PCI_EXPRESS_REG_DOE_CONTROL_OFFSET, 0);
     return LIBSPDM_STATUS_SUCCESS;
+#endif
 }
 
 libspdm_return_t spdm_device_acquire_sender_buffer (
@@ -136,12 +253,21 @@ void *spdm_server_init(void)
 
     libspdm_register_device_io_func(spdm_context, spdm_responder_send_message,
                                     spdm_responder_receive_message);
+#if defined(LIBSPDM_HOST_EMU)
+    libspdm_register_transport_layer_func(spdm_context,
+                                          LIBSPDM_MAX_SPDM_MSG_SIZE,
+                                          LIBSPDM_TCP_TRANSPORT_HEADER_SIZE,
+                                          LIBSPDM_TCP_TRANSPORT_TAIL_SIZE,
+                                          libspdm_transport_tcp_encode_message,
+                                          libspdm_transport_tcp_decode_message);
+#else
     libspdm_register_transport_layer_func(spdm_context,
                                           LIBSPDM_MAX_SPDM_MSG_SIZE,
                                           LIBSPDM_PCI_DOE_TRANSPORT_HEADER_SIZE,
                                           LIBSPDM_PCI_DOE_TRANSPORT_TAIL_SIZE,
                                           libspdm_transport_pci_doe_encode_message,
                                           libspdm_transport_pci_doe_decode_message);
+#endif
     libspdm_register_device_buffer_func(spdm_context,
                                         LIBSPDM_SENDER_BUFFER_SIZE,
                                         LIBSPDM_RECEIVER_BUFFER_SIZE,
