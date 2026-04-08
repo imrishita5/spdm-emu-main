@@ -292,7 +292,7 @@ void *spdm_server_init(void)
     libspdm_register_device_io_func(spdm_context, spdm_responder_send_message,
                                     spdm_responder_receive_message);
 #if defined(LIBSPDM_HOST_EMU)
-    max_spdm_msg_size = LIBSPDM_RECEIVER_DATA_TRANSFER_SIZE;
+    max_spdm_msg_size = LIBSPDM_RECEIVER_BUFFER_SIZE;
     libspdm_register_transport_layer_func(spdm_context,
                                           max_spdm_msg_size,
                                           LIBSPDM_TCP_TRANSPORT_HEADER_SIZE,
