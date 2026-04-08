@@ -279,6 +279,7 @@ void *spdm_server_init(void)
     uint8_t data8;
     uint16_t data16;
     uint32_t data32;
+    uint32_t max_spdm_msg_size;
     void *data;
     size_t data_size;
 
@@ -291,15 +292,17 @@ void *spdm_server_init(void)
     libspdm_register_device_io_func(spdm_context, spdm_responder_send_message,
                                     spdm_responder_receive_message);
 #if defined(LIBSPDM_HOST_EMU)
+    max_spdm_msg_size = LIBSPDM_RECEIVER_DATA_TRANSFER_SIZE;
     libspdm_register_transport_layer_func(spdm_context,
-                                          LIBSPDM_MAX_SPDM_MSG_SIZE,
+                                          max_spdm_msg_size,
                                           LIBSPDM_TCP_TRANSPORT_HEADER_SIZE,
                                           LIBSPDM_TCP_TRANSPORT_TAIL_SIZE,
                                           libspdm_transport_tcp_encode_message,
                                           libspdm_transport_tcp_decode_message);
 #else
+    max_spdm_msg_size = LIBSPDM_MAX_SPDM_MSG_SIZE;
     libspdm_register_transport_layer_func(spdm_context,
-                                          LIBSPDM_MAX_SPDM_MSG_SIZE,
+                                          max_spdm_msg_size,
                                           LIBSPDM_PCI_DOE_TRANSPORT_HEADER_SIZE,
                                           LIBSPDM_PCI_DOE_TRANSPORT_TAIL_SIZE,
                                           libspdm_transport_pci_doe_encode_message,
@@ -337,6 +340,14 @@ void *spdm_server_init(void)
         ;
     libspdm_set_data(spdm_context, LIBSPDM_DATA_CAPABILITY_FLAGS, &parameter,
                      &data32, sizeof(data32));
+
+#if defined(LIBSPDM_HOST_EMU)
+    data32 = max_spdm_msg_size;
+    libspdm_set_data(spdm_context, LIBSPDM_DATA_CAPABILITY_DATA_TRANSFER_SIZE,
+                     &parameter, &data32, sizeof(data32));
+    libspdm_set_data(spdm_context, LIBSPDM_DATA_CAPABILITY_MAX_SPDM_MSG_SIZE,
+                     &parameter, &data32, sizeof(data32));
+#endif
 
     /* algorithm */
     data8 = SPDM_MEASUREMENT_SPECIFICATION_DMTF;
