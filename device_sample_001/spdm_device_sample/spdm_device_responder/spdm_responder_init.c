@@ -30,6 +30,7 @@ uint32_t m_command = SOCKET_SPDM_COMMAND_NORMAL;
 #endif
 
 int m_host_emu_socket = -1;
+static uint8_t m_host_emu_tx_buffer[LIBSPDM_MAX_SENDER_RECEIVER_BUFFER_SIZE + 4];
 
 static bool spdm_host_emu_read_n(void *buffer, size_t size)
 {
@@ -115,6 +116,10 @@ libspdm_return_t spdm_responder_send_message(void *spdm_context,
                                              uint64_t timeout)
 {
 #if defined(LIBSPDM_HOST_EMU)
+    const uint8_t *msg;
+    const void *payload_to_send;
+    size_t payload_size_to_send;
+
     (void)spdm_context;
     (void)timeout;
 
@@ -122,9 +127,37 @@ libspdm_return_t spdm_responder_send_message(void *spdm_context,
         return LIBSPDM_STATUS_SEND_FAIL;
     }
 
+    msg = (const uint8_t *)message;
+    payload_to_send = message;
+    payload_size_to_send = message_size;
+
+    /* Ensure payload is TCP transport framed. Some flows can provide plain SPDM bytes,
+     * so we build TCP binding header when needed.
+     */
+    if (!(message_size >= 4 && msg[2] == 0x01 && (msg[3] == 0x05 || msg[3] == 0x06))) {
+        uint16_t payload_length;
+
+        if (message_size > (sizeof(m_host_emu_tx_buffer) - 4)) {
+            return LIBSPDM_STATUS_SEND_FAIL;
+        }
+
+        payload_length = (uint16_t)(message_size + 2);
+        m_host_emu_tx_buffer[0] = (uint8_t)(payload_length & 0xFF);
+        m_host_emu_tx_buffer[1] = (uint8_t)((payload_length >> 8) & 0xFF);
+        m_host_emu_tx_buffer[2] = 0x01;
+        m_host_emu_tx_buffer[3] = 0x05;
+        libspdm_copy_mem(m_host_emu_tx_buffer + 4,
+                         sizeof(m_host_emu_tx_buffer) - 4,
+                         message,
+                         message_size);
+
+        payload_to_send = m_host_emu_tx_buffer;
+        payload_size_to_send = message_size + 4;
+    }
+
     return spdm_responder_send_platform_message(SOCKET_SPDM_COMMAND_NORMAL,
-                                                message_size,
-                                                message);
+                                                payload_size_to_send,
+                                                payload_to_send);
 #else
     size_t index;
     const uint32_t *msg;
