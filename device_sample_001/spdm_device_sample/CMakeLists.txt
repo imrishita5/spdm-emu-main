@@ -791,6 +791,7 @@ add_compile_options(-UMBEDTLS_CONFIG_FILE -DMBEDTLS_CONFIG_FILE="${PROJECT_SOURC
     add_subdirectory(${LIBSPDM_DIR}/library/spdm_transport_pcidoe_lib out/spdm_transport_pcidoe_lib.lib)
     add_subdirectory(${LIBSPDM_DIR}/library/spdm_transport_tcp_lib out/spdm_transport_tcp_lib.lib)
     add_subdirectory(${LIBSPDM_DIR}/os_stub/memlib out/memlib.lib)
+    add_subdirectory(${LIBSPDM_DIR}/os_stub/malloclib out/malloclib.lib)
     add_subdirectory(${LIBSPDM_DIR}/os_stub/spdm_crypt_ext_lib out/spdm_crypt_ext_lib.lib)
 
     if(TOOLCHAIN STREQUAL "ARM_DS2022" OR TOOLCHAIN STREQUAL "ARM_GNU")

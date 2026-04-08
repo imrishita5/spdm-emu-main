@@ -81,6 +81,10 @@ set(spdm_device_responder_LIBRARY
     pci_tdisp_device_lib
 )
 
+set(spdm_device_responder_host_emu_LIBRARY ${spdm_device_responder_LIBRARY})
+list(REMOVE_ITEM spdm_device_responder_host_emu_LIBRARY malloclib_simple)
+list(APPEND spdm_device_responder_host_emu_LIBRARY malloclib)
+
 if(TOOLCHAIN STREQUAL "ARM_DS2022" OR TOOLCHAIN STREQUAL "ARM_GNU")
     set(spdm_device_responder_LIBRARY ${spdm_device_responder_LIBRARY} armbuild_lib)
 endif()
@@ -98,11 +102,11 @@ add_executable(spdm_device_responder_host_emu ${src_spdm_device_responder_host_e
 target_compile_definitions(spdm_device_responder_host_emu PRIVATE LIBSPDM_HOST_EMU=1)
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     target_link_libraries(spdm_device_responder_host_emu
-        ${spdm_device_responder_LIBRARY}
+        ${spdm_device_responder_host_emu_LIBRARY}
         spdm_transport_tcp_lib)
 else()
     target_link_libraries(spdm_device_responder_host_emu
-        ${spdm_device_responder_LIBRARY}
+        ${spdm_device_responder_host_emu_LIBRARY}
         spdm_transport_tcp_lib
         ws2_32)
 endif()
